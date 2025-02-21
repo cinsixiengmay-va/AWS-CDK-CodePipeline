@@ -1,0 +1,94 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description:  Example - Bedrock IAM service roles and policies - CUSTOMIZATION REQUIRED
+
+Resources:
+    # Create a service role for Amazon Bedrock Knowledge Bases https://docs.aws.amazon.com/bedrock/latest/userguide/kb-permissions.html
+    rRoleKB:
+        Type: AWS::IAM::Role
+        Properties:
+          Path: /project/
+          PermissionsBoundary: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/vaec/project-admin
+          AssumeRolePolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Principal:
+                Service: !Sub bedrock.${AWS::URLSuffix}
+              Action:
+              - sts:AssumeRole
+              Condition:
+                StringEquals:
+                  aws:SourceAccount: !Sub ${AWS::AccountId}
+                ArnLike:  #ArnEquals
+                  aws:SourceArn: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/* #Replace * with KNOWLEDGEBASEID
+          ManagedPolicyArns:
+             - !Ref rPolicyKB
+
+    rPolicyKB:
+        Type: AWS::IAM::ManagedPolicy
+        Properties:
+          Description: bedrock-knowledge-bases
+          Path: /project/
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:ListFoundationModels
+                - bedrock:ListCustomModels
+              Resource: "*"
+            - Sid: BedrockInvokeModelStatement
+              Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource:
+                - !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0
+            - Sid: OpenSearchServerlessAPIAccessAllStatement
+              Effect: Allow
+              Action:
+                - aoss:APIAccessAll
+              Resource:
+                - !Sub arn:${AWS::Partition}:aoss:${AWS::Region}:${AWS::AccountId}:collection/* #Replace * with AOSSCOLLECTIONID
+            - Sid: S3ListBucketStatement
+              Effect: Allow
+              Action:
+                - s3:ListBucket
+              Resource:
+              - !Sub arn:${AWS::Partition}:s3:::DATASOURCEBUCKET
+              Condition:
+                StringEquals:
+                  aws:ResourceAccount:
+                    - !Sub ${AWS::AccountId}
+            - Sid: S3GetObjectStatement
+              Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource:
+                - !Sub arn:${AWS::Partition}:s3:::DATASOURCEBUCKET/*
+              Condition:
+                StringEquals:
+                  aws:ResourceAccount:
+                    - !Sub ${AWS::AccountId}
+
+    # Create a service role for Amazon Bedrock Agents https://docs.aws.amazon.com/bedrock/latest/userguide/agents-permissions.html
+    rRoleAgent:
+        Type: AWS::IAM::Role
+        Properties:
+          Path: /project/
+          PermissionsBoundary: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/vaec/project-admin
+          AssumeRolePolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Principal:
+                Service: !Sub bedrock.${AWS::URLSuffix}
+              Action:
+              - sts:AssumeRole
+              Condition:
+                StringEquals:
+                  aws:SourceAccount: !Sub ${AWS::AccountId}
+                ArnLike:  #ArnEquals
+                  aws:SourceArn: !Sub arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:agent/* #Replace * with AGENTID
+          ManagedPolicyArns:
+             - !Ref rPolicyAgent
